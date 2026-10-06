@@ -766,6 +766,7 @@ exit 23
 async fn crash_during_shutdown_does_not_retry() {
     let temp = TempDir::new().expect("tempdir");
     let spawn_count_file = temp.path().join("spawn-count.txt");
+    let request_received_file = temp.path().join("request-received.txt");
     let gate_file = temp.path().join("gate.txt");
     let worker_path = write_worker_script(
         temp.path(),
@@ -780,12 +781,14 @@ fi
 count=$((count + 1))
 echo "$count" > "$count_file"
 read -r _
+echo received > "{request_file}"
 while [ ! -f "{gate_file}" ]; do
   sleep 0.01
 done
 exit 0
 "#,
             count_file = spawn_count_file.display(),
+            request_file = request_received_file.display(),
             gate_file = gate_file.display(),
         ),
     );
@@ -805,7 +808,7 @@ exit 0
             .await
     });
 
-    wait_for_startup_file(&spawn_count_file).await;
+    wait_for_startup_file(&request_received_file).await;
     manager.shutdown_immediate().await;
     fs::write(&gate_file, "release").expect("gate written");
 
